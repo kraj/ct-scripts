@@ -1,0 +1,5 @@
+These are handy scripts that can be used to build cross toolchains
+based on GNU compiler and using eglibc/glibc, uclibc or just baremetal(newlib)
+
+If you find them useful tell everyone. If you find a problem tell me
+
