@@ -1,7 +1,16 @@
 # !/usr/bin/env bash
-
-src=$HOME/work
-defconfig_dir=$HOME/work/ct-scripts/uClibc-defconfigs
+if [ "$top" == "" ]; then
+    echo "top variable is empty. It should point to top of the build trees. Please add it to your environment"
+    exit 1
+fi
+if [ "$src" == "" ]; then
+    echo "src variable is empty. It should point to top dir where all source trees are. Please add it to your enviroment"
+    exit 1
+fi
+if [ "$defconfig_dir" == "" ]; then
+    echo "defconfig_dir variable is empty. It should point to dir where all uclibc defconfigs are usually in uClibc-defconfigs dir under the ct-scripts tree you cloned. Please add it to your enviroment"
+    exit 1
+fi
 
 if [ $# -lt 1 ]; then
     echo -en "
@@ -95,7 +104,7 @@ case $arch in
         ;;
 esac
 
-top=$HOME/work/cross/$target
+top=$top/$target
 obj=$top/obj
 tools=$top/tools
 sysroot=$top/sysroot

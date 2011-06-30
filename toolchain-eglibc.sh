@@ -91,8 +91,15 @@ case $arch in
         ;;
 esac
 
-top=$HOME/work/cross/$target
-src=$HOME/work
+if [ "$top" == "" ]; then
+    echo "top variable is empty. It should point to top of the build trees. Please add it to your environment"
+    exit 1
+fi
+if [ "$src" == "" ]; then
+    echo "src variable is empty. It should point to top dir where all source trees are. Please add it to your enviroment"
+    exit 1
+fi
+top=$top/$target
 obj=$top/obj
 tools=$top/tools
 sysroot=$top/sysroot

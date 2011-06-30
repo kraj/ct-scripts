@@ -64,9 +64,18 @@ case ${ARCH} in
 	exit 1
 	;;
 esac
-BASE=$HOME/work/cross/$TARGET
+if [ "$top" == "" ]; then
+    echo "top variable is empty. It should point to top of the build trees. Please add it to your environment"
+    exit 1
+fi
+if [ "$src" == "" ]; then
+    echo "src variable is empty. It should point to top dir where all source trees are. Please add it to your enviroment"
+    exit 1
+fi
+
+BASE=$top/$TARGET
 OBJBASE=$BASE/objdir
-SRCBASE=$BASE/../..
+SRCBASE=$src
 PREFIX=$BASE/tools
 # uncomment if want to generate debuggable toolchain components.
 #MAKE_FLAGS="CFLAGS='-O0 -g3'"
