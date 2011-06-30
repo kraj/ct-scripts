@@ -3,6 +3,16 @@ if [ $# -ne 1 ]; then
     echo -en "
     Usage: `basename $0` <arch>
     Example: `basename $0` ppc64
+    Make sure that binutilsv, linuxv, gccv, libcv, point to src of respective
+    components usually the top directories
+    For gcc you also need prerequisite libraries installed e.g. libmpfr-dev
+    libgmp-dev libmpc-dev, gcc 4.5 also need libelf-dev installed on build
+    system. Alternatively you can also untar them in the gcc sources.
+
+    top and srctop should also be customized to your environment
+    by default
+    top=/export/TARGET
+    src=top/../src
 "
     exit 1
 fi
@@ -13,7 +23,7 @@ fi
 binutilsv=binutils
 linuxv=linux-2.6
 gccv=gcc
-libcv=glibc
+libcv=eglibc
 
 download_src=no
 
@@ -81,8 +91,8 @@ case $arch in
         ;;
 esac
 
-top=/export/$target
-src=$top/../src
+top=$HOME/work/cross/$target
+src=$HOME/work
 obj=$top/obj
 tools=$top/tools
 sysroot=$top/sysroot
@@ -342,7 +352,7 @@ x86_64)
                      install-bootstrap-headers=yes && touch .compiled
 	check_return "eglibc headers-32 install"
 
-        mkdir -p $sysroot/usr/lib32
+        mkdir -p $sysroot/usr/lib
         make csu/subdir_lib && touch .compiled
         cp csu/crt[1in].o $sysroot/usr/lib
         $tools/bin/$target-gcc -m32 -march=i686 -nostdlib -nostartfiles -shared -x c /dev/null \

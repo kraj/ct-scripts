@@ -17,15 +17,15 @@ CPUS=`cat /proc/cpuinfo |grep processor |wc -l`
 CPUS=$(($CPUS * 2))
 ARCH=$1
 
-GCC_VER=gcc-trunk
+GCC_VER=gcc
 BINUTILS_VER=binutils
 NEWLIB_VER=newlib
 GDB_VER=gdb
 
 case ${ARCH} in
     arm)
-	TARGET=arm-none-elf
-#	TARGET=arm-none-eabi
+#	TARGET=arm-elf
+	TARGET=arm-eabi
 #	CONFIG_FLAGS="--disable-multilib --with-interwork \
 #	--disable-werror --with-arch=armv7-a --with-tune=cortex-a8 \
 #	--with-fpu=vfp --with-mode=thumb"
@@ -35,23 +35,23 @@ case ${ARCH} in
 	CONFIG_FLAGS=
 	;;
     ppc64)
-	TARGET=powerpc64-none-elf
+	TARGET=powerpc64-elf
 	CONFIG_FLAGS=
 	;;
     ppc)
-      TARGET=powerpc-none-elf
+      TARGET=powerpc-elf
       CONFIG_FLAGS=
         ;;
     mips64)
-	TARGET=mips64-none-elf
+	TARGET=mips64-elf
 	CONFIG_FLAGS="--enable-multilib --disable-werror"
 	;;
     mips)
-	TARGET=mips-none-elf
+	TARGET=mips-elf
 	CONFIG_FLAGS="--disable-werror"
 	;;
     sparc)
-	TARGET=sparc64-none-elf
+	TARGET=sparc64-elf
 	CONFIG_FLAGS=
 	;;
     iwmmxt)
@@ -64,7 +64,7 @@ case ${ARCH} in
 	exit 1
 	;;
 esac
-BASE=/home/$USER/work/cross/$TARGET
+BASE=$HOME/work/cross/$TARGET
 OBJBASE=$BASE/objdir
 SRCBASE=$BASE/../..
 PREFIX=$BASE/tools
@@ -80,17 +80,19 @@ echo "+-----------------------------------------------+"
 echo "|               Doing Binutils                  |"
 echo "+-----------------------------------------------+"
 cd ${OBJBASE}/binutils-build
-if [ ! -e config.cache ]; then
+if [ ! -e .configured ]; then
 	eval $MAKE_FLAGS \
 	${SRCBASE}/$BINUTILS_VER/configure \
 	--target=${TARGET} \
 	--prefix=${PREFIX} ${CONFIG_FLAGS} \
-	--enable-install-bfd
-#	--enable-targets=all
+	--enable-install-bfd && touch .configured
 fi
-make -j$CPUS all-gas all-binutils all-ld
-make -j$CPUS install-gas install-binutils install-ld
-
+if [ ! -e .compiled ]; then
+	make -j$CPUS all-gas all-binutils all-ld && touch .compiled
+fi
+if [ ! -e .installed ]; then
+	make -j$CPUS install-gas install-binutils install-ld && touch .installed
+fi
 
 if [ "$?"  -ne 0 ];then
     echo "Error while building Binutils"
@@ -105,18 +107,23 @@ echo "+-----------------------------------------------+"
 ln -s ${SRCBASE}/$NEWLIB_VER/newlib ${SRCBASE}/$GCC_VER
 ln -s ${SRCBASE}/$NEWLIB_VER/libgloss ${SRCBASE}/$GCC_VER
 cd ${OBJBASE}/gcc-build
-if [ ! -e config.cache ]; then
+if [ ! -e .configured ]; then
 	eval $MAKE_FLAGS \
 	${SRCBASE}/$GCC_VER/configure \
 	--target=${TARGET} \
 	--prefix=${PREFIX} ${CONFIG_FLAGS} \
 	--enable-languages="c,c++" \
-	--with-newlib
+	--with-newlib && touch .configured
 #	--with-headers=${SRCBASE}/$NEWLIB_VER/newlib/libc/include
 
 fi
-make -j$CPUS
-make install
+if [ ! -e .compiled ]; then
+	make -j$CPUS && touch .compiled
+fi
+if [ ! -e .installed ]; then
+	make -j$CPUS install && touch .installed
+fi
+
 if [ "$?"  -ne 0 ];then
     echo "Error while building gcc & newlib"
     exit 1
@@ -155,7 +162,7 @@ echo "+-----------------------------------------------+"
 echo "|               Doing GDB                       |"
 echo "+-----------------------------------------------+"
 cd ${OBJBASE}/gdb-build
-if [ ! -e config.cache ]; then
+if [ ! -e .configured ]; then
 	eval $MAKE_FLAGS \
 	${SRCBASE}/$GDB_VER/configure \
 	--target=${TARGET} \
@@ -163,10 +170,15 @@ if [ ! -e config.cache ]; then
 	--disable-werror --disable-nls \
 	${CONFIG_FLAGS} \
 	--enable-sim \
-	--with-x=no --disable-gdbtk
+	--with-x=no --disable-gdbtk && touch .configured
 fi
-make -j$CPUS all-gdb all-sim
-make -j$CPUS install-gdb install-sim
+if [ ! -e .compiled ]; then
+	make -j$CPUS all-gdb all-sim && touch .compiled
+fi
+if [ ! -e .installed ]; then
+	make -j$CPUS install-gdb install-sim && touch .installed
+fi
+
 if [ "$?"  -ne 0 ];then
     echo "Error while building GDB"
     exit 1

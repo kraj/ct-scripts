@@ -1,7 +1,7 @@
 # !/usr/bin/env bash
 
-src=/export/src
-defconfig_dir=$src/uClibc-defconfigs
+src=$HOME/work
+defconfig_dir=$HOME/work/ct-scripts/uClibc-defconfigs
 
 if [ $# -lt 1 ]; then
     echo -en "
@@ -95,7 +95,7 @@ case $arch in
         ;;
 esac
 
-top=/export/$target
+top=$HOME/work/cross/$target
 obj=$top/obj
 tools=$top/tools
 sysroot=$top/sysroot
