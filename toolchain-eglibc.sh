@@ -21,7 +21,7 @@ fi
 # what you want your toolchain based on
 
 binutilsv=binutils
-linuxv=linux-2.6
+linuxv=linux
 gccv=gcc
 libcv=eglibc
 
@@ -182,11 +182,11 @@ $src/$gccv/configure \
      && touch .configured
 fi
 if [ ! -e .compiled ]; then
-PATH=$tools/bin:$PATH make -j $parallelism all-gcc && touch .compiled
+PATH=$tools/bin:$PATH make -j $parallelism all-gcc all-target-libgcc && touch .compiled
 check_return "gcc1 compile"
 fi
 if [ ! -e .installed ]; then
-PATH=$tools/bin:$PATH make -j  $parallelism install-gcc && touch .installed
+PATH=$tools/bin:$PATH make -j  $parallelism install-gcc install-target-libgcc && touch .installed
 check_return "gcc1 install"
 fi
 

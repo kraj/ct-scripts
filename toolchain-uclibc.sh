@@ -39,7 +39,7 @@ fi
 
 #threadv=lt
 binutilsv=binutils
-linuxv=linux-2.6
+linuxv=linux
 gccv=gcc
 libcv=uClibc
 download_src=no
