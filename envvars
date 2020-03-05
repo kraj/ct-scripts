@@ -1,6 +1,6 @@
 # Sample envvar file please fill in the locations as per your
 # setup
 # then source ./envvars before launching the build
-export top=~/work
+export top=/mnt/b/tc
 export src=~/work
 export defconfig_dir=~/work/ct-scripts/uClibc-defconfigs

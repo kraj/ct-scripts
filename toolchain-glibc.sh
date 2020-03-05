@@ -20,10 +20,10 @@ fi
 # change these versions depending upon
 # what you want your toolchain based on
 
-binutilsv=binutils
+binutilsv=binutils-gdb
 linuxv=linux
 gccv=gcc
-libcv=eglibc
+libcv=glibc
 
 download_src=no
 
@@ -36,7 +36,7 @@ parallelism=$(($cpus * $proc_per_cpu))
 #extra_gcc_configure_opts="--enable-gold --enable-lto"
 #extra_binutils_configure_opts="--enable-ld=default --enable-gold=yes"
 extra_binutils_configure_opts="--disable-werror"
-extra_eglibc_configure_opts=
+extra_glibc_configure_opts=
 arch=$1
 default_libdir_name=lib
 case $arch in
@@ -72,7 +72,7 @@ case $arch in
         target=$arch-linux-gnu
         linux_arch=sh
 	if [ "$arch" = "sh3" ]; then
-	    extra_eglibc_configure_opts="--without-fp"
+	    extra_glibc_configure_opts="--without-fp"
 	fi
         ;;
     x86)
@@ -114,16 +114,11 @@ download () {
   wget -q ftp://mirrors.kernel.org/sources.redhat.com/gcc/snapshots/LATEST-$gccv/gcc-[0-9]*.tar.bz2
   gccv=`ls gcc-*.tar.bz2`
   gccv=${gccv:4:12}
-tar -xjf gcc-$gccv.tar.bz2
-wget -q ftp://mirrors.kernel.org/sources.redhat.com/binutils/snapshots/binutils-$binutilsv.tar.bz2
+  tar -xjf gcc-$gccv.tar.bz2
+  wget -q ftp://mirrors.kernel.org/sources.redhat.com/binutils/snapshots/binutils-$binutilsv.tar.bz2
   tar -xjf binutils-$binutilsv.tar.bz2
-#  svn co -q svn://svn.eglibc.org/trunk eglibc
-#  cd $libcv/libc
-#  ln -s ../ports .
-#  cd -
-  cp -a ~/work/$libcv .
-  cd $libcv/libc
-  ln -s ../ports
+# git clone git://git.sourceware.org/glibc glibc
+#  cd $libcv
 # do not generate configure scripts. You dont know if your
 # autoconf version is right or not.
   find . -name configure -exec touch '{}' ';'
@@ -210,15 +205,13 @@ fi
 # autoconf version is right or not.
 cd $src/$libcv
 find . -name configure -exec touch '{}' ';'
-cd $src/$libcv/libc
-ln -sf ../ports
 
 case $arch in
 mips64)
 	# n64
-	echo "Doing eglibc-n64 headers ..."
-        mkdir -p $obj/eglibc-headers-n64
-        cd $obj/eglibc-headers-n64
+	echo "Doing glibc-n64 headers ..."
+        mkdir -p $obj/glibc-headers-n64
+        cd $obj/glibc-headers-n64
 	if [ ! -e .configured ]; then
         BUILD_CC=gcc \
         CFLAGS='-g -O2 -fgnu89-inline' \
@@ -235,7 +228,7 @@ mips64)
             --build=$build \
             --host=$target \
             --disable-profile --without-gd --without-cvs --enable-add-ons \
-	    $extra_eglibc_configure_opts \
+	    $extra_glibc_configure_opts \
 	    && touch .configured
         fi
 
@@ -245,7 +238,7 @@ mips64)
                      install-bootstrap-headers=yes \
 		     && touch .compiled
 
-	check_return "eglibc headers-n64 install"
+	check_return "glibc headers-n64 install"
 
 	mkdir -p $sysroot/usr/lib64
 	make csu/subdir_lib
@@ -254,9 +247,9 @@ mips64)
                        -o $sysroot/usr/lib64/libc.so
         fi
 	# o32
-	echo "Doing eglibc-o32 headers ..."
-        mkdir -p $obj/eglibc-headers-o32
-        cd $obj/eglibc-headers-o32
+	echo "Doing glibc-o32 headers ..."
+        mkdir -p $obj/glibc-headers-o32
+        cd $obj/glibc-headers-o32
 	if [ ! -e .configured ]; then
         BUILD_CC=gcc \
         CFLAGS='-g -O2 -fgnu89-inline' \
@@ -273,7 +266,7 @@ mips64)
             --build=$build \
             --host=$target \
             --disable-profile --without-gd --without-cvs --enable-add-ons \
-	    $extra_eglibc_configure_opts \
+	    $extra_glibc_configure_opts \
 	    && touch .configured
 	fi
 	if [ ! -e .compiled ]; then
@@ -282,7 +275,7 @@ mips64)
                      install-bootstrap-headers=yes \
 		     && touch .compiled
 
-	check_return "eglibc headers-o32 install"
+	check_return "glibc headers-o32 install"
 	
 	mkdir -p $sysroot/usr/lib
 	make csu/subdir_lib
@@ -293,9 +286,9 @@ mips64)
 	;;
 ppc64)
         # 32-bit
-	echo "Doing eglibc 32-bit headers ..."
-        mkdir -p $obj/eglibc-headers-32
-        cd $obj/eglibc-headers-32
+	echo "Doing glibc 32-bit headers ..."
+        mkdir -p $obj/glibc-headers-32
+        cd $obj/glibc-headers-32
 	if [ ! -e .configured ]; then
         BUILD_CC=gcc \
         CFLAGS='-g -O2 -fgnu89-inline' \
@@ -312,7 +305,7 @@ ppc64)
             --build=$build \
             --host=powerpc-linux-gnu \
             --disable-profile --without-gd --without-cvs --enable-add-ons \
-	    $extra_eglibc_configure_opts \
+	    $extra_glibc_configure_opts \
 	    && touch .configured
 	fi
 	if [ ! -e .compiled ]; then
@@ -320,7 +313,7 @@ ppc64)
                      install_root=$sysroot \
                      install-bootstrap-headers=yes \
 		     && touch .compiled
-	check_return "eglibc headers-32 install"
+	check_return "glibc headers-32 install"
 
         mkdir -p $sysroot/usr/lib
         make csu/subdir_lib && touch .compiled
@@ -331,9 +324,9 @@ ppc64)
         ;;
 x86_64)
         # 32-bit
-	echo "Doing eglibc 32-bit headers ..."
-        mkdir -p $obj/eglibc-headers-32
-        cd $obj/eglibc-headers-32
+	echo "Doing glibc 32-bit headers ..."
+        mkdir -p $obj/glibc-headers-32
+        cd $obj/glibc-headers-32
 	if [ ! -e .configured ]; then
         BUILD_CC=gcc \
         CFLAGS='-g -O2 -fgnu89-inline' \
@@ -350,14 +343,14 @@ x86_64)
             --build=$build \
             --host=i686-linux-gnu \
             --disable-profile --without-gd --without-cvs --enable-add-ons \
-	    $extra_eglibc_configure_opts \
+	    $extra_glibc_configure_opts \
 	    && touch .configured
 	fi
 	if [ ! -e .compiled ]; then
         make PARALLELMFLAGS=-j$parallelism install-headers \
                      install_root=$sysroot \
                      install-bootstrap-headers=yes && touch .compiled
-	check_return "eglibc headers-32 install"
+	check_return "glibc headers-32 install"
 
         mkdir -p $sysroot/usr/lib
         make csu/subdir_lib && touch .compiled
@@ -371,9 +364,9 @@ x86_64)
 	;;
 esac
 
-echo "Doing eglibc default headers ..."
-mkdir -p $obj/eglibc-headers
-cd $obj/eglibc-headers
+echo "Doing glibc default headers ..."
+mkdir -p $obj/glibc-headers
+cd $obj/glibc-headers
 if [ ! -e .configured ]; then
     BUILD_CC=gcc \
     CFLAGS='-g -O2 -fgnu89-inline' \
@@ -384,20 +377,20 @@ if [ ! -e .configured ]; then
     LD=$tools/bin/$target-ld \
     AS=$tools/bin/$target-as \
     NM=$tools/bin/$target-nm \
-    $src/$libcv/libc/configure \
+    $src/$libcv/configure \
     --prefix=/usr \
     --with-headers=$sysroot/usr/include \
     --build=$build \
     --host=$target \
     --disable-profile --without-gd --without-cvs --enable-add-ons \
-    $extra_eglibc_configure_opts \
+    $extra_glibc_configure_opts \
     && touch .configured
 fi
 if [ ! -e .compiled ]; then
     make PARALLELMFLAGS=-j$parallelism install-headers \
     install_root=$sysroot \
     install-bootstrap-headers=yes && touch .compiled
-    check_return "eglibc headers install"
+    check_return "glibc headers install"
 	    
     mkdir -p $sysroot/usr/$default_libdir_name
     make csu/subdir_lib
@@ -416,6 +409,7 @@ $src/$gccv/configure \
     --with-sysroot=$sysroot \
     --disable-libssp --disable-libgomp \
     --disable-libmudflap --disable-libquadmath \
+    --disable-libatomic \
     --enable-languages=c $extra_gcc_configure_opts \
     && touch .configured
 fi
@@ -430,11 +424,11 @@ fi
 
 case $arch in
     mips64)
-	# eglibc n64
-	echo "Doing eglibc n64 ..."
+	# glibc n64
+	echo "Doing glibc n64 ..."
 	
-	mkdir -p $obj/eglibc-n64
-	cd $obj/eglibc-n64
+	mkdir -p $obj/glibc-n64
+	cd $obj/glibc-n64
 	if [ ! -e .configured ]; then
 	BUILD_CC=gcc \
 	AUTOCONF=autoconf-2.13 \
@@ -446,30 +440,30 @@ case $arch in
 	LD=$tools/bin/$target-ld \
 	AS=$tools/bin/$target-as \
 	NM=$tools/bin/$target-nm \
-	$src/$libcv/libc/configure \
+	$src/$libcv/configure \
 	    --prefix=/usr \
 	    --with-headers=$sysroot/usr/include \
 	    --build=$build \
 	    --host=$target \
 	    --disable-profile --without-gd --without-cvs --enable-add-ons \
-	    $extra_eglibc_configure_opts \
+	    $extra_glibc_configure_opts \
 	    && touch .configured
         fi
 	if [ ! -e .compiled ]; then
 	PATH=$tools/bin:$PATH make PARALLELMFLAGS=-j$parallelism \
 	    && touch .compiled
-	check_return "eglibc n64 compile"
+	check_return "glibc n64 compile"
 	fi
 	if [ ! -e .installed ]; then
 	PATH=$tools/bin:$PATH make PARALLELMFLAGS=-j$parallelism install \
 			   install_root=$sysroot && touch .installed
-	check_return "eglibc n64 install"
+	check_return "glibc n64 install"
 	fi
-	# eglibc o32
-	echo "Doing eglibc o32 ..."
+	# glibc o32
+	echo "Doing glibc o32 ..."
 
-	mkdir -p $obj/eglibc-o32
-	cd $obj/eglibc-o32
+	mkdir -p $obj/glibc-o32
+	cd $obj/glibc-o32
 	if [ ! -e .configured ]; then
 	BUILD_CC=gcc \
 	AUTOCONF=autoconf-2.13 \
@@ -481,31 +475,31 @@ case $arch in
 	LD=$tools/bin/$target-ld \
 	AS=$tools/bin/$target-as \
 	NM=$tools/bin/$target-nm \
-	$src/$libcv/libc/configure \
+	$src/$libcv/configure \
 	    --prefix=/usr \
 	    --with-headers=$sysroot/usr/include \
 	    --build=$build \
 	    --host=$target \
 	    --disable-profile --without-gd --without-cvs --enable-add-ons \
-	    $extra_eglibc_configure_opts \
+	    $extra_glibc_configure_opts \
 	    && touch .configured
         fi
 	if [ ! -e .compiled ]; then
 	PATH=$tools/bin:$PATH make PARALLELMFLAGS=-j$parallelism \
 	    && touch .compiled
-	check_return "eglibc o32 compile"
+	check_return "glibc o32 compile"
 	fi
 	if [ ! -e .installed ]; then
 	PATH=$tools/bin:$PATH make PARALLELMFLAGS=-j$parallelism install \
 			   install_root=$sysroot && touch .installed
-	check_return "eglibc o32 install"
+	check_return "glibc o32 install"
         fi
 	;;
     ppc64)
-	# eglibc 32-bit
-	echo "Doing eglibc 32-bit ..."
-	mkdir -p $obj/eglibc-32
-	cd $obj/eglibc-32
+	# glibc 32-bit
+	echo "Doing glibc 32-bit ..."
+	mkdir -p $obj/glibc-32
+	cd $obj/glibc-32
 	if [ ! -e .configured ]; then
 	BUILD_CC=gcc \
 	AUTOCONF=autoconf-2.13 \
@@ -517,31 +511,31 @@ case $arch in
 	LD=$tools/bin/$target-ld \
 	AS=$tools/bin/$target-as \
 	NM=$tools/bin/$target-nm \
-	$src/$libcv/libc/configure \
+	$src/$libcv/configure \
 	    --prefix=/usr \
 	    --with-headers=$sysroot/usr/include \
 	    --build=$build \
 	    --host=powerpc-linux-gnu \
 	    --disable-profile --without-gd --without-cvs --enable-add-ons \
-	    $extra_eglibc_configure_opts \
+	    $extra_glibc_configure_opts \
 	    && touch .configured
         fi
 	if [ ! -e .compiled ]; then
 	PATH=$tools/bin:$PATH make PARALLELMFLAGS=-j$parallelism \
 	    && touch .compiled
-	check_return "eglibc 32 compile"
+	check_return "glibc 32 compile"
 	fi
 	if [ ! -e .installed ]; then
 	PATH=$tools/bin:$PATH make PARALLELMFLAGS=-j$parallelism install \
 			   install_root=$sysroot && touch .installed
-	check_return "eglibc 32 install"
+	check_return "glibc 32 install"
         fi
 	;;
     x86_64)
-	# eglibc 32-bit
-	echo "Doing eglibc 32-bit ..."
-	mkdir -p $obj/eglibc-32
-	cd $obj/eglibc-32
+	# glibc 32-bit
+	echo "Doing glibc 32-bit ..."
+	mkdir -p $obj/glibc-32
+	cd $obj/glibc-32
 	if [ ! -e .configured ]; then
 	BUILD_CC=gcc \
 	AUTOCONF=autoconf-2.13 \
@@ -553,33 +547,33 @@ case $arch in
 	LD=$tools/bin/$target-ld \
 	AS=$tools/bin/$target-as \
 	NM=$tools/bin/$target-nm \
-	$src/$libcv/libc/configure \
+	$src/$libcv/configure \
 	    --prefix=/usr \
 	    --with-headers=$sysroot/usr/include \
 	    --build=$build \
 	    --host=i686-linux-gnu \
 	    --disable-profile --without-gd --without-cvs --enable-add-ons \
-	    $extra_eglibc_configure_opts \
+	    $extra_glibc_configure_opts \
 	    && touch .configured
         fi
 	if [ ! -e .compiled ]; then
 	PATH=$tools/bin:$PATH make PARALLELMFLAGS=-j$parallelism \
 	    && touch .compiled
-	check_return "eglibc 32 compile"
+	check_return "glibc 32 compile"
         fi
 	if [ ! -e .installed ]; then
 	PATH=$tools/bin:$PATH make PARALLELMFLAGS=-j$parallelism install \
 			   install_root=$sysroot && touch .installed
-	check_return "eglibc 32 install"
+	check_return "glibc 32 install"
         fi
 	;;
     *);;
 esac
 
-echo "Doing default eglibc ..."
+echo "Doing default glibc ..."
 
-mkdir -p $obj/eglibc
-cd $obj/eglibc
+mkdir -p $obj/glibc
+cd $obj/glibc
 if [ ! -e .configured ]; then
 BUILD_CC=gcc \
 AUTOCONF=autoconf-2.13 \
@@ -591,23 +585,23 @@ RANLIB=$tools/bin/$target-ranlib \
 LD=$tools/bin/$target-ld \
 AS=$tools/bin/$target-as \
 NM=$tools/bin/$target-nm \
-$src/$libcv/libc/configure \
+$src/$libcv/configure \
     --prefix=/usr \
     --with-headers=$sysroot/usr/include \
     --build=$build \
     --host=$target \
     --disable-profile --without-gd --without-cvs --enable-add-ons \
-    $extra_eglibc_configure_opts \
+    $extra_glibc_configure_opts \
     && touch .configured
 fi
 if [ ! -e .compiled ]; then
 PATH=$tools/bin:$PATH make PARALLELMFLAGS=-j$parallelism && touch .compiled
-check_return "eglibc compile"
+check_return "glibc compile"
 fi
 if [ ! -e .installed ]; then
 PATH=$tools/bin:$PATH make PARALLELMFLAGS=-j$parallelism install \
 			   install_root=$sysroot && touch .installed
-check_return "eglibc install"
+check_return "glibc install"
 fi
 
 
@@ -660,10 +654,7 @@ esac
 fi
 echo "!!! All Done !!!"
 
-#delete the ports link we created in libc
-rm $src/$libcv/libc/ports
+# testing glibc in cross env
 
-# testing eglibc in cross env
-
-# $ cd $obj/eglibc
-# $ make cross-test-wrapper='/home/kraj/work/eglibc/libc/scripts/cross-test-ssh.sh root@192.168.1.91' -k tests
+# $ cd $obj/glibc
+# $ make cross-test-wrapper='/home/kraj/work/glibc/libc/scripts/cross-test-ssh.sh root@192.168.1.91' -k tests

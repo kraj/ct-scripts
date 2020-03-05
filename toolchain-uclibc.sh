@@ -35,10 +35,10 @@ fi
 #binutilsv=2.18.50
 #linuxv=2.6.24
 #gccv=4.2
-#libcv=eglibc
+#libcv=glibc
 
 #threadv=lt
-binutilsv=binutils
+binutilsv=binutils-gdb
 linuxv=linux
 gccv=gcc
 libcv=uClibc

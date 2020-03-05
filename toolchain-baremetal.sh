@@ -18,9 +18,9 @@ CPUS=$(($CPUS * 2))
 ARCH=$1
 
 GCC_VER=gcc
-BINUTILS_VER=binutils
+BINUTILS_VER=binutils-gdb
 NEWLIB_VER=newlib
-GDB_VER=gdb
+GDB_VER=binutils-gdb
 
 case ${ARCH} in
     arm)
@@ -32,7 +32,7 @@ case ${ARCH} in
 #	CONFIG_FLAGS="--disable-multilib --with-interwork \
 #	--disable-werror --with-arch=armv6j --with-tune=arm1136jf-s \
 #	--with-float=softfp --with-fpu=vfp"
-	CONFIG_FLAGS=
+	CONFIG_FLAGS="--disable-multilib"
 	;;
     ppc64)
 	TARGET=powerpc64-elf
