@@ -45,35 +45,35 @@ case $arch in
         linux_arch=arm
         ;;
     mipsel|mips|mips64)
-	if [ "$arch" = "mips64" ]; then
-	    default_libdir_name=lib32
-	fi
+	      if [ "$arch" = "mips64" ]; then
+	          default_libdir_name=lib32
+	      fi
         target=$arch-linux-gnu
         linux_arch=mips
-	extra_binutils_configure_opts="$extra_binutils_configure_opts --disable-werror"
+        extra_binutils_configure_opts="$extra_binutils_configure_opts --disable-werror"
         ;;
     mpc)
         target=powerpc-linux-gnuspe
         linux_arch=powerpc
-	extra_binutils_configure_opts="$extra_binutils_configure_opts --disable-werror"
+        extra_binutils_configure_opts="$extra_binutils_configure_opts --disable-werror"
         ;;
     ppc)
         target=powerpc-linux-gnu
         linux_arch=powerpc
-	extra_binutils_configure_opts="$extra_binutils_configure_opts --disable-werror"
+        extra_binutils_configure_opts="$extra_binutils_configure_opts --disable-werror"
         ;;
     ppc64|powerpc64)
         target=powerpc64-linux-gnu
         linux_arch=powerpc
-	default_libdir_name=lib64
-	extra_binutils_configure_opts="$extra_binutils_configure_opts --enable-targets=powerpc-linux --disable-werror"
+        default_libdir_name=lib64
+        extra_binutils_configure_opts="$extra_binutils_configure_opts --enable-targets=powerpc-linux --disable-werror"
         ;;
     sh3|sh4|sh64)
         target=$arch-linux-gnu
         linux_arch=sh
-	if [ "$arch" = "sh3" ]; then
-	    extra_glibc_configure_opts="--without-fp"
-	fi
+	      if [ "$arch" = "sh3" ]; then
+	          extra_glibc_configure_opts="--without-fp"
+	      fi
         ;;
     x86)
         target=i586-linux-gnu
@@ -83,7 +83,7 @@ case $arch in
     x86_64)
         target=x86_64-linux-gnu
         linux_arch=x86
-	default_libdir_name=lib64
+        default_libdir_name=lib64
         ;;
     *)
         echo "Specify one {arm mpc ppc ppc64 mips mipsel mips64 sh3 sh4 sh64} architecture to build."
