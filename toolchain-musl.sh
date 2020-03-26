@@ -202,7 +202,6 @@ cd $obj/gcc1
 prep_gcc
 if [ ! -e .configured ]; then
 $src/$gccv/configure \
-$src/$gccv/configure \
     --target=$target \
     --prefix=$tools \
     --disable-libssp --disable-libcilkrts \
