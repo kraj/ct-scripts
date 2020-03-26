@@ -13,54 +13,56 @@ if [ $# -ne 1 ]; then
     exit 1
 fi
 
-CPUS=`cat /proc/cpuinfo |grep processor |wc -l`
-CPUS=$(($CPUS * 2))
-ARCH=$1
+cpus=`cat /proc/cpuinfo |grep processor |wc -l`
+proc_per_cpu=2
+parallelism=$(($cpus * $proc_per_cpu))
 
-GCC_VER=gcc
-BINUTILS_VER=binutils-gdb
-NEWLIB_VER=newlib
-GDB_VER=binutils-gdb
+arch=$1
 
-case ${ARCH} in
+gccv=gcc
+binutilsv=binutils-gdb
+newlibv=newlib
+gdbv=binutils-gdb
+
+case ${arch} in
     arm)
-#	TARGET=arm-elf
-	TARGET=arm-eabi
-#	CONFIG_FLAGS="--disable-multilib --with-interwork \
+#	target=arm-elf
+	target=arm-eabi
+#	extra_gcc_configure_opts="--disable-multilib --with-interwork \
 #	--disable-werror --with-arch=armv7-a --with-tune=cortex-a8 \
 #	--with-fpu=vfp --with-mode=thumb"
-#	CONFIG_FLAGS="--disable-multilib --with-interwork \
+#	extra_gcc_configure_opts="--disable-multilib --with-interwork \
 #	--disable-werror --with-arch=armv6j --with-tune=arm1136jf-s \
 #	--with-float=softfp --with-fpu=vfp"
-	CONFIG_FLAGS="--disable-multilib"
+	extra_gcc_configure_opts="--disable-multilib"
 	;;
     ppc64)
-	TARGET=powerpc64-elf
-	CONFIG_FLAGS=
+	target=powerpc64-elf
+	extra_gcc_configure_opts=
 	;;
     ppc)
-      TARGET=powerpc-elf
-      CONFIG_FLAGS=
+      target=powerpc-elf
+      extra_gcc_configure_opts=
         ;;
     mips64)
-	TARGET=mips64-elf
-	CONFIG_FLAGS="--enable-multilib --disable-werror"
+	target=mips64-elf
+	extra_gcc_configure_opts="--enable-multilib --disable-werror"
 	;;
     mips)
-	TARGET=mips-elf
-	CONFIG_FLAGS="--disable-werror"
+	target=mips-elf
+	extra_gcc_configure_opts="--disable-werror"
 	;;
     sparc)
-	TARGET=sparc64-elf
-	CONFIG_FLAGS=
+	target=sparc64-elf
+	extra_gcc_configure_opts=
 	;;
     iwmmxt)
-	TARGET=arm-iwmmxt-elf
-	CONFIG_FLAGS=
+	target=arm-iwmmxt-elf
+	extra_gcc_configure_opts=
 	;;
     
     *)
-	echo Architecture "${ARCH}" not supported
+	echo Architecture "${arch}" not supported
 	exit 1
 	;;
 esac
@@ -73,10 +75,10 @@ if [ "$src" == "" ]; then
     exit 1
 fi
 
-BASE=$top/$TARGET
-OBJBASE=$BASE/objdir
-SRCBASE=$src
-PREFIX=$BASE/tools
+top=$top/$target
+obj=$top/objdir
+tools=$top/tools
+sysroot=$top/sysroot
 
 finish() {
   if [ $gcc_patched ]; then
@@ -106,37 +108,38 @@ eval grep '\<STANDARD_STARTFILE_PREFIX_2\>' $src/$gccv/gcc/cppdefault.c >& /dev/
 gcc_patched=$?
 
 # uncomment if want to generate debuggable toolchain components.
-#MAKE_FLAGS="CFLAGS='-O0 -g3'"
+#makeflags="CFLAGS='-O0 -g3'"
 rm -rf $BASE
-mkdir -p ${OBJBASE}/binutils-build
-mkdir -p ${OBJBASE}/gcc-build
-mkdir -p ${OBJBASE}/gdb-build
-mkdir -p ${OBJBASE}/newlib-build
+mkdir -p ${obj}/binutils-build
+mkdir -p ${obj}/gcc-build
+mkdir -p ${obj}/gdb-build
+mkdir -p ${obj}/newlib-build
 
 prep_src
 
 echo "+-----------------------------------------------+"
 echo "|               Doing Binutils                  |"
 echo "+-----------------------------------------------+"
-cd ${OBJBASE}/binutils-build
+cd ${obj}/binutils-build
 if [ ! -e .configured ]; then
-	eval $MAKE_FLAGS \
-	${SRCBASE}/$BINUTILS_VER/configure \
-	--target=${TARGET} \
-	--prefix=${PREFIX} ${CONFIG_FLAGS} \
+	eval $makeflags \
+	${src}/$binutilsv/configure \
+	--target=${target} \
+	--prefix=${tools} ${extra_binutils_configure_opts} \
   --enable-deterministic-archives \
   --disable-gdb \
   --disable-gdbserver \
   --disable-libdecnumber \
   --disable-readline \
   --disable-sim \
+  --disable-werror \
 	--enable-install-bfd && touch .configured
 fi
 if [ ! -e .compiled ]; then
-	make -j$CPUS && touch .compiled
+	make -j$parallelism && touch .compiled
 fi
 if [ ! -e .installed ]; then
-	make -j$CPUS install && touch .installed
+	make -j$parallelism install && touch .installed
 fi
 
 if [ "$?"  -ne 0 ];then
@@ -144,32 +147,32 @@ if [ "$?"  -ne 0 ];then
     exit 1
 fi
 
-export PATH="$PATH:${PREFIX}/bin"
+export PATH="$PATH:${tools}/bin"
 
 echo "+-----------------------------------------------+"
 echo "|               Doing gcc & newlib              |"
 echo "+-----------------------------------------------+"
-ln -s ${SRCBASE}/$NEWLIB_VER/newlib ${SRCBASE}/$GCC_VER
-ln -s ${SRCBASE}/$NEWLIB_VER/libgloss ${SRCBASE}/$GCC_VER
-cd ${OBJBASE}/gcc-build
+ln -s ${src}/$newlibv/newlib ${src}/$gccv
+ln -s ${src}/$newlibv/libgloss ${src}/$gccv
+cd ${obj}/gcc-build
 
 prep_gcc
 
 if [ ! -e .configured ]; then
-	eval $MAKE_FLAGS \
-	${SRCBASE}/$GCC_VER/configure \
-	--target=${TARGET} \
-	--prefix=${PREFIX} ${CONFIG_FLAGS} \
+	eval $makeflags \
+	${src}/$gccv/configure \
+	--target=${target} \
+	--prefix=${tools} ${extra_gcc_configure_opts} \
 	--enable-languages="c,c++" \
 	--with-newlib && touch .configured
-#	--with-headers=${SRCBASE}/$NEWLIB_VER/newlib/libc/include
+#	--with-headers=${src}/$newlibv/newlib/libc/include
 
 fi
 if [ ! -e .compiled ]; then
-	make -j$CPUS && touch .compiled
+	make -j$parallelism && touch .compiled
 fi
 if [ ! -e .installed ]; then
-	make -j$CPUS install && touch .installed
+	make -j$parallelism install && touch .installed
 fi
 
 if [ "$?"  -ne 0 ];then
@@ -180,16 +183,16 @@ fi
 #echo "+-----------------------------------------------+"
 #echo "|               Doing newlib                    |"
 #echo "+-----------------------------------------------+"
-#cd ${OBJBASE}/newlib-build
+#cd ${obj}/newlib-build
 #if [ ! -e config.cache ]; then
-#	eval $MAKE_FLAGS \
-#        ${SRCBASE}/$NEWLIB_VER/configure \
-#	--target=${TARGET} \
-#        --prefix=${PREFIX} ${CONFIG_FLAGS}
+#	eval $makeflags \
+#        ${src}/$newlibv/configure \
+#	--target=${target} \
+#        --prefix=${tools} ${extra_gcc_configure_opts}
 #
 #fi
-#make -j$CPUS all-target-newlib all-target-libgloss
-#make -j$CPUS install-target-newlib install-target-libgloss
+#make -j$parallelism all-target-newlib all-target-libgloss
+#make -j$parallelism install-target-newlib install-target-libgloss
 #if [ "$?"  -ne 0 ];then
 #    echo "Error while building newlib"
 #    exit 1
@@ -198,8 +201,8 @@ fi
 #echo "+-----------------------------------------------+"
 #echo "|               Doing final gcc                 |"
 #echo "+-----------------------------------------------+"
-#cd ${OBJBASE}/gcc-build
-#make -j$CPUS
+#cd ${obj}/gcc-build
+#make -j$parallelism
 #make install
 #if [ "$?"  -ne 0 ];then
 #    echo "Error while building final gcc"
@@ -209,29 +212,29 @@ fi
 echo "+-----------------------------------------------+"
 echo "|               Doing GDB                       |"
 echo "+-----------------------------------------------+"
-cd ${OBJBASE}/gdb-build
+cd ${obj}/gdb-build
 if [ ! -e .configured ]; then
-	eval $MAKE_FLAGS \
-	${SRCBASE}/$GDB_VER/configure \
-	--target=${TARGET} \
-	--prefix=${PREFIX} \
+	eval $makeflags \
+	${src}/$gdbv/configure \
+	--target=${target} \
+	--prefix=${tools} \
 	--disable-werror --disable-nls \
-	${CONFIG_FLAGS} \
+	${extra_gdb_configure_opts} \
 	--enable-sim \
 	--with-x=no --disable-gdbtk && touch .configured
 fi
 if [ ! -e .compiled ]; then
-	make -j$CPUS all-gdb all-sim && touch .compiled
+	make -j$parallelism all-gdb all-sim && touch .compiled
 fi
 if [ ! -e .installed ]; then
-	make -j$CPUS install-gdb install-sim && touch .installed
+	make -j$parallelism install-gdb install-sim && touch .installed
 fi
 
 if [ "$?"  -ne 0 ];then
     echo "Error while building GDB"
     exit 1
 fi
-rm ${SRCBASE}/$GCC_VER/newlib
-rm ${SRCBASE}/$GCC_VER/libgloss
+rm ${src}/$gccv/newlib
+rm ${src}/$gccv/libgloss
 
 echo "------------------- All Done! -------------------"
