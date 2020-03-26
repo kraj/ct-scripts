@@ -124,13 +124,19 @@ if [ ! -e .configured ]; then
 	${SRCBASE}/$BINUTILS_VER/configure \
 	--target=${TARGET} \
 	--prefix=${PREFIX} ${CONFIG_FLAGS} \
+  --enable-deterministic-archives \
+  --disable-gdb \
+  --disable-gdbserver \
+  --disable-libdecnumber \
+  --disable-readline \
+  --disable-sim \
 	--enable-install-bfd && touch .configured
 fi
 if [ ! -e .compiled ]; then
-	make -j$CPUS all-gas all-binutils all-ld && touch .compiled
+	make -j$CPUS && touch .compiled
 fi
 if [ ! -e .installed ]; then
-	make -j$CPUS install-gas install-binutils install-ld && touch .installed
+	make -j$CPUS install && touch .installed
 fi
 
 if [ "$?"  -ne 0 ];then
