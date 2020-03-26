@@ -236,8 +236,8 @@ check_return "musl install"
 fi
 
 echo "Doing GCC final ..."
-mkdir -p $obj/gcc3
-cd $obj/gcc3
+mkdir -p $obj/gcc2
+cd $obj/gcc2
 if [ ! -e .configured ]; then
 $src/$gccv/configure \
     --target=$target \
