@@ -44,6 +44,11 @@ case $arch in
         target=arm-linux-gnueabi
         linux_arch=arm
         ;;
+    armhf)
+        target=arm-linux-gnueabihf
+        extra_gcc_configure_opts="--with-float=hard --with-fpu=vfp"
+        linux_arch=arm
+        ;;
     mipsel|mips|mips64)
 	      if [ "$arch" = "mips64" ]; then
 	          default_libdir_name=lib32
@@ -134,6 +139,42 @@ check_return () {
   fi
 }
 
+finish() {
+  if [ $gcc_patched ]; then
+    mv $src/$gccv/gcc/cppdefault.c.orig $src/$gccv/gcc/cppdefault.c
+  fi
+  if [ $glibc_patched ]; then
+    mv $src/$libcv/elf/readlib.c.orig $src/$libcv/elf/readlib.c
+  fi
+}
+
+trap finish EXIT
+
+prep_gcc () {
+  if [ $gcc_patched ]; then
+    mkdir gcc
+    touch gcc/t-oe
+    cp $src/$gccv/gcc/defaults.h gcc/defaults.h
+    sed -i '$i'"#define SYSTEMLIBS_DIR \"/\\$default_libdir_name\""  gcc/defaults.h
+  fi
+}
+
+prep_src () {
+  if [ $gcc_patched ]; then
+    cp $src/$gccv/gcc/cppdefault.c $src/$gccv/gcc/cppdefault.c.orig
+    sed -i -e 's/\<STANDARD_STARTFILE_PREFIX_2\>//g' $src/$gccv/gcc/cppdefault.c
+  fi
+  if [ $glibc_patched ]; then
+    cp $src/$libcv/elf/readlib.c $src/$libcv/elf/readlib.c.orig
+    sed -i -e /OECORE_KNOWN_INTERPRETER_NAMES/d $src/$libcv/elf/readlib.c
+  fi
+}
+
+eval grep '\<STANDARD_STARTFILE_PREFIX_2\>' $src/$gccv/gcc/cppdefault.c >& /dev/null
+gcc_patched=$?
+eval grep '\<OECORE_KNOWN_INTERPRETER_NAMES\>' $src/$libcv/elf/readlib.c >& /dev/null
+glibc_patched=$?
+
 #if [ $download_src = "yes" ]; then
 #download
 #else
@@ -141,48 +182,61 @@ check_return () {
 #gccv=${gccv:4:12}
 #fi
 
+prep_src
+
 echo "Doing Binutils ..."
 mkdir -p $obj/binutils
 cd $obj/binutils
 if [ ! -e .configured ]; then
-$src/$binutilsv/configure \
+  $src/$binutilsv/configure \
      	--target=$target \
      	--prefix=$tools \
      	--with-sysroot=$sysroot \
-	$extra_binutils_configure_opts \
-	&& touch .configured
+	    $extra_binutils_configure_opts \
+	    && touch .configured
 #     --enable-targets=all
 fi
 if [ ! -e .compiled ]; then
-make -j $parallelism all-binutils all-ld all-gas all-gold && touch .compiled
-check_return "binutils compile"
+  make -j $parallelism all-binutils all-ld all-gas all-gold && touch .compiled
+  check_return "binutils compile"
 fi
 if [ ! -e .installed ]; then
-make -j $parallelism install-ld install-gas install-binutils install-gold && touch .installed
-check_return "binutils install"
+  make -j $parallelism install-ld install-gas install-binutils install-gold && touch .installed
+  check_return "binutils install"
 fi
 
 echo "Doing GCC phase 1 ..."
 mkdir -p $obj/gcc1
 cd $obj/gcc1
+prep_gcc
 if [ ! -e .configured ]; then
 $src/$gccv/configure \
-     --target=$target \
-     --prefix=$tools \
-     --without-header \
-     --with-newlib \
-     --disable-shared --disable-threads --disable-libssp \
-     --disable-libgomp --disable-libmudflap --disable-libquadmath \
-     --enable-languages=c $extra_gcc_configure_opts \
-     && touch .configured
+    --target=$target \
+    --prefix=$tools \
+    --disable-libssp --disable-libcilkrts \
+    --enable-languages=c --disable-shared \
+    --disable-threads \
+    --disable-libatomic \
+    --disable-decimal-float \
+    --disable-libffi \
+    --disable-libgomp \
+    --disable-libitm \
+    --disable-libmpx \
+    --disable-libquadmath \
+    --disable-libsanitizer \
+    --without-headers --with-newlib \
+    $extra_gcc_configure_opts \
+    && touch .configured
 fi
 if [ ! -e .compiled ]; then
-PATH=$tools/bin:$PATH make -j $parallelism all-gcc all-target-libgcc && touch .compiled
-check_return "gcc1 compile"
+#  sed -i '$i'"#define STANDARD_STARTFILE_PREFIX_1 \"/lib\""  gcc/defaults.h
+#  sed -i '$i'"#define STANDARD_STARTFILE_PREFIX_2 \"/usr/lib\""  gcc/defaults.h
+  PATH=$tools/bin:$PATH make -j $parallelism all-gcc all-target-libgcc && touch .compiled
+  check_return "gcc1 compile"
 fi
 if [ ! -e .installed ]; then
-PATH=$tools/bin:$PATH make -j  $parallelism install-gcc install-target-libgcc && touch .installed
-check_return "gcc1 install"
+  PATH=$tools/bin:$PATH make -j  $parallelism install-gcc install-target-libgcc && touch .installed
+  check_return "gcc1 install"
 fi
 
 echo "Doing linux kernel headers ..."
@@ -207,222 +261,6 @@ cd $src/$libcv
 find . -name configure -exec touch '{}' ';'
 
 case $arch in
-mips64)
-	# n64
-	echo "Doing glibc-n64 headers ..."
-        mkdir -p $obj/glibc-headers-n64
-        cd $obj/glibc-headers-n64
-	if [ ! -e .configured ]; then
-        BUILD_CC=gcc \
-        CFLAGS='-g -O2 -fgnu89-inline' \
-        CC="$tools/bin/$target-gcc -mabi=64" \
-        CXX="$tools/bin/$target-g++ -mabi=64" \
-        AR=$tools/bin/$target-ar \
-        RANLIB=$tools/bin/$target-ranlib \
-        LD=$tools/bin/$target-ld \
-        AS=$tools/bin/$target-as \
-        NM=$tools/bin/$target-nm \
-        $src/$libcv/libc/configure \
-            --prefix=/usr \
-            --with-headers=$sysroot/usr/include \
-            --build=$build \
-            --host=$target \
-            --disable-profile --without-gd --without-cvs --enable-add-ons \
-	    $extra_glibc_configure_opts \
-	    && touch .configured
-        fi
-
-	if [ ! -e .compiled ]; then
-        make PARALLELMFLAGS=-j$parallelism install-headers \
-                     install_root=$sysroot \
-                     install-bootstrap-headers=yes \
-		     && touch .compiled
-
-	check_return "glibc headers-n64 install"
-
-	mkdir -p $sysroot/usr/lib64
-	make csu/subdir_lib
-	cp csu/crt[1in].o $sysroot/usr/lib64
-	$tools/bin/$target-gcc -mabi=64 -nostdlib -nostartfiles -shared -x c /dev/null \
-                       -o $sysroot/usr/lib64/libc.so
-        fi
-	# o32
-	echo "Doing glibc-o32 headers ..."
-        mkdir -p $obj/glibc-headers-o32
-        cd $obj/glibc-headers-o32
-	if [ ! -e .configured ]; then
-        BUILD_CC=gcc \
-        CFLAGS='-g -O2 -fgnu89-inline' \
-	CC="$tools/bin/$target-gcc -mabi=32" \
-        CXX="$tools/bin/$target-g++ -mabi=32" \
-        AR=$tools/bin/$target-ar \
-        RANLIB=$tools/bin/$target-ranlib \
-        LD=$tools/bin/$target-ld \
-        AS=$tools/bin/$target-as \
-        NM=$tools/bin/$target-nm \
-        $src/$libcv/libc/configure \
-            --prefix=/usr \
-            --with-headers=$sysroot/usr/include \
-            --build=$build \
-            --host=$target \
-            --disable-profile --without-gd --without-cvs --enable-add-ons \
-	    $extra_glibc_configure_opts \
-	    && touch .configured
-	fi
-	if [ ! -e .compiled ]; then
-        make PARALLELMFLAGS=-j$parallelism install-headers \
-                     install_root=$sysroot \
-                     install-bootstrap-headers=yes \
-		     && touch .compiled
-
-	check_return "glibc headers-o32 install"
-	
-	mkdir -p $sysroot/usr/lib
-	make csu/subdir_lib
-	cp csu/crt[1in].o $sysroot/usr/lib
-	$tools/bin/$target-gcc -mabi=32 -nostdlib -nostartfiles -shared -x c /dev/null \
-                       -o $sysroot/usr/lib/libc.so
-        fi
-	;;
-ppc64)
-        # 32-bit
-	echo "Doing glibc 32-bit headers ..."
-        mkdir -p $obj/glibc-headers-32
-        cd $obj/glibc-headers-32
-	if [ ! -e .configured ]; then
-        BUILD_CC=gcc \
-        CFLAGS='-g -O2 -fgnu89-inline' \
-        CC="$tools/bin/$target-gcc -m32" \
-        CXX="$tools/bin/$target-g++ -m32" \
-        AR=$tools/bin/$target-ar \
-        RANLIB=$tools/bin/$target-ranlib \
-        LD=$tools/bin/$target-ld \
-        AS=$tools/bin/$target-as \
-        NM=$tools/bin/$target-nm \
-        $src/$libcv/libc/configure \
-            --prefix=/usr \
-            --with-headers=$sysroot/usr/include \
-            --build=$build \
-            --host=powerpc-linux-gnu \
-            --disable-profile --without-gd --without-cvs --enable-add-ons \
-	    $extra_glibc_configure_opts \
-	    && touch .configured
-	fi
-	if [ ! -e .compiled ]; then
-        make PARALLELMFLAGS=-j$parallelism install-headers \
-                     install_root=$sysroot \
-                     install-bootstrap-headers=yes \
-		     && touch .compiled
-	check_return "glibc headers-32 install"
-
-        mkdir -p $sysroot/usr/lib
-        make csu/subdir_lib && touch .compiled
-        cp csu/crt[1in].o $sysroot/usr/lib
-        $tools/bin/$target-gcc -m32 -nostdlib -nostartfiles -shared \
-	    -x c /dev/null -o $sysroot/usr/lib/libc.so
-        fi
-        ;;
-x86_64)
-        # 32-bit
-	echo "Doing glibc 32-bit headers ..."
-        mkdir -p $obj/glibc-headers-32
-        cd $obj/glibc-headers-32
-	if [ ! -e .configured ]; then
-        BUILD_CC=gcc \
-        CFLAGS='-g -O2 -fgnu89-inline' \
-        CC="$tools/bin/$target-gcc -m32 -march=i686" \
-        CXX="$tools/bin/$target-g++ -m32 -march=i686" \
-        AR=$tools/bin/$target-ar \
-        RANLIB=$tools/bin/$target-ranlib \
-        LD=$tools/bin/$target-ld \
-        AS=$tools/bin/$target-as \
-        NM=$tools/bin/$target-nm \
-        $src/$libcv/libc/configure \
-            --prefix=/usr \
-            --with-headers=$sysroot/usr/include \
-            --build=$build \
-            --host=i686-linux-gnu \
-            --disable-profile --without-gd --without-cvs --enable-add-ons \
-	    $extra_glibc_configure_opts \
-	    && touch .configured
-	fi
-	if [ ! -e .compiled ]; then
-        make PARALLELMFLAGS=-j$parallelism install-headers \
-                     install_root=$sysroot \
-                     install-bootstrap-headers=yes && touch .compiled
-	check_return "glibc headers-32 install"
-
-        mkdir -p $sysroot/usr/lib
-        make csu/subdir_lib && touch .compiled
-        cp csu/crt[1in].o $sysroot/usr/lib
-        $tools/bin/$target-gcc -m32 -march=i686 -nostdlib -nostartfiles -shared -x c /dev/null \
-                       -o $sysroot/usr/lib/libc.so
-        fi
-	;;
-
-*)
-	;;
-esac
-
-echo "Doing glibc default headers ..."
-mkdir -p $obj/glibc-headers
-cd $obj/glibc-headers
-if [ ! -e .configured ]; then
-    BUILD_CC=gcc \
-    CFLAGS='-g -O2 -fgnu89-inline' \
-    CC=$tools/bin/$target-gcc \
-    CXX=$tools/bin/$target-g++ \
-    AR=$tools/bin/$target-ar \
-    RANLIB=$tools/bin/$target-ranlib \
-    LD=$tools/bin/$target-ld \
-    AS=$tools/bin/$target-as \
-    NM=$tools/bin/$target-nm \
-    $src/$libcv/configure \
-    --prefix=/usr \
-    --with-headers=$sysroot/usr/include \
-    --build=$build \
-    --host=$target \
-    --disable-profile --without-gd --without-cvs --enable-add-ons \
-    $extra_glibc_configure_opts \
-    && touch .configured
-fi
-if [ ! -e .compiled ]; then
-    make PARALLELMFLAGS=-j$parallelism install-headers \
-    install_root=$sysroot \
-    install-bootstrap-headers=yes && touch .compiled
-    check_return "glibc headers install"
-	    
-    mkdir -p $sysroot/usr/$default_libdir_name
-    make csu/subdir_lib
-    cp csu/crt[1in].o $sysroot/usr/$default_libdir_name
-    $tools/bin/$target-gcc -nostdlib -nostartfiles -shared -x c /dev/null \
-    -o $sysroot/usr/$default_libdir_name/libc.so
-fi
-
-echo "Doing GCC phase 2 ..."
-mkdir -p $obj/gcc2
-cd $obj/gcc2
-if [ ! -e .configured ]; then
-$src/$gccv/configure \
-    --target=$target \
-    --prefix=$tools \
-    --with-sysroot=$sysroot \
-    --disable-libssp --disable-libgomp \
-    --disable-libmudflap --disable-libquadmath \
-    --disable-libatomic \
-    --enable-languages=c $extra_gcc_configure_opts \
-    && touch .configured
-fi
-if [ ! -e .compiled ]; then
-PATH=$tools/bin:$PATH make -j $parallelism && touch .compiled
-check_return "gcc2 compile"
-fi
-if [ ! -e .installed ]; then
-PATH=$tools/bin:$PATH make -j $parallelism install && touch .installed
-check_return "gcc2 install"
-fi
-
-case $arch in
     mips64)
 	# glibc n64
 	echo "Doing glibc n64 ..."
@@ -435,6 +273,7 @@ case $arch in
 	CFLAGS='-g -O2 -fgnu89-inline' \
 	CC="$tools/bin/$target-gcc -mabi=64" \
 	CXX="$tools/bin/$target-g++ -mabi=64" \
+	CPP="$tools/bin/$target-cpp -mabi=64" \
 	AR=$tools/bin/$target-ar \
 	RANLIB=$tools/bin/$target-ranlib \
 	LD=$tools/bin/$target-ld \
@@ -470,6 +309,7 @@ case $arch in
 	CFLAGS='-g -O2 -fgnu89-inline' \
 	CC="$tools/bin/$target-gcc -mabi=32" \
 	CXX="$tools/bin/$target-g++ -mabi=32" \
+	CPP="$tools/bin/$target-cpp -mabi=32" \
 	AR=$tools/bin/$target-ar \
 	RANLIB=$tools/bin/$target-ranlib \
 	LD=$tools/bin/$target-ld \
@@ -506,6 +346,7 @@ case $arch in
 	CFLAGS='-g -O2 -fgnu89-inline' \
 	CC="$tools/bin/$target-gcc -m32" \
 	CXX="$tools/bin/$target-g++ -m32" \
+	CPP="$tools/bin/$target-cpp -m32" \
 	AR=$tools/bin/$target-ar \
 	RANLIB=$tools/bin/$target-ranlib \
 	LD=$tools/bin/$target-ld \
@@ -542,6 +383,7 @@ case $arch in
 	CFLAGS='-g -O2 -fgnu89-inline' \
 	CC="$tools/bin/$target-gcc -m32 -march=i686" \
 	CXX="$tools/bin/$target-g++ -m32 -march=i686" \
+	CPP="$tools/bin/$target-cpp -m32 -march=i686" \
 	AR=$tools/bin/$target-ar \
 	RANLIB=$tools/bin/$target-ranlib \
 	LD=$tools/bin/$target-ld \
@@ -576,8 +418,6 @@ mkdir -p $obj/glibc
 cd $obj/glibc
 if [ ! -e .configured ]; then
 BUILD_CC=gcc \
-AUTOCONF=autoconf-2.13 \
-CFLAGS='-g -O2 -fgnu89-inline' \
 CC=$tools/bin/$target-gcc \
 CXX=$tools/bin/$target-g++ \
 AR=$tools/bin/$target-ar \
@@ -585,9 +425,15 @@ RANLIB=$tools/bin/$target-ranlib \
 LD=$tools/bin/$target-ld \
 AS=$tools/bin/$target-as \
 NM=$tools/bin/$target-nm \
+OBJCOPY=$tools/bin/$target-objcopy \
+OBJDUMP=$tools/bin/$target-objdump \
+RANLIB=$tools/bin/$target-ranlib \
+READELF=$tools/bin/$target-readelf \
+STRIP=$tools/bin/$target-strip \
 $src/$libcv/configure \
     --prefix=/usr \
     --with-headers=$sysroot/usr/include \
+    --with-binutils=$tools/bin \
     --build=$build \
     --host=$target \
     --disable-profile --without-gd --without-cvs --enable-add-ons \
@@ -595,66 +441,73 @@ $src/$libcv/configure \
     && touch .configured
 fi
 if [ ! -e .compiled ]; then
-PATH=$tools/bin:$PATH make PARALLELMFLAGS=-j$parallelism && touch .compiled
-check_return "glibc compile"
+  cp $src/$libcv/elf/readlib.c $src/$libcv/elf/readlib.c.orig
+  sed -i -e /OECORE_KNOWN_INTERPRETER_NAMES/d $src/$libcv/elf/readlib.c
+  PATH=$tools/bin:$PATH make PARALLELMFLAGS=-j$parallelism && touch .compiled
+  check_return "glibc compile"
 fi
 if [ ! -e .installed ]; then
-PATH=$tools/bin:$PATH make PARALLELMFLAGS=-j$parallelism install \
+  PATH=$tools/bin:$PATH make PARALLELMFLAGS=-j$parallelism install \
 			   install_root=$sysroot && touch .installed
-check_return "glibc install"
+  check_return "glibc install"
 fi
 
+if [ -e $src/$libcv/elf/readlib.c.orig ]; then
+  mv $src/$libcv/elf/readlib.c.orig $src/$libcv/elf/readlib.c
+fi
 
-echo "Doing GCC phase 3 ..."
-mkdir -p $obj/gcc3
-cd $obj/gcc3
+echo "Doing final GCC ..."
+mkdir -p $obj/gcc2
+cd $obj/gcc2
+prep_gcc
 if [ ! -e .configured ]; then
 $src/$gccv/configure \
     --target=$target \
     --prefix=$tools \
     --with-sysroot=$sysroot \
     --enable-__cxa_atexit \
+    --enable-shared --enable-threads \
     --disable-libssp --disable-libgomp --disable-libmudflap \
     --enable-languages=c,c++ $extra_gcc_configure_opts \
     && touch .configured
 fi
 if [ ! -e .compiled ]; then
-PATH=$tools/bin:$PATH make -j $parallelism && touch .compiled
-check_return "gcc3 compile"
+  PATH=$tools/bin:$PATH make -j $parallelism && touch .compiled
+  check_return "gcc final compile"
 fi
 if [ ! -e .installed ]; then
-PATH=$tools/bin:$PATH make -j $parallelism install && touch .installed
-check_return "gcc3 install"
-case $arch in
-ppc64)
-	cp -d $tools/$target/lib64/libgcc_s.so* $sysroot/lib64
-	cp -d $tools/$target/lib64/libstdc++.so* $sysroot/usr/lib64
-	cp -d $tools/$target/lib/libgcc_s.so* $sysroot/lib
-	cp -d $tools/$target/lib/libstdc++.so* $sysroot/usr/lib
-	;;
-x86_64)
-	cp -d $tools/$target/lib/libgcc_s.so* $sysroot/lib
-	cp -d $tools/$target/lib/libstdc++.so* $sysroot/usr/lib
-	cp -d $tools/$target/lib64/libgcc_s.so* $sysroot/lib64
-	cp -d $tools/$target/lib64/libstdc++.so* $sysroot/usr/lib64
-	;;
-mips64)
-	cp -d $tools/$target/lib64/libgcc_s.so* $sysroot/lib64
-	cp -d $tools/$target/lib64/libgcc_s.so* $sysroot/lib64
-	cp -d $tools/$target/lib32/libstdc++.so* $sysroot/usr/lib32
-	cp -d $tools/$target/lib32/libstdc++.so* $sysroot/usr/lib32
-	cp -d $tools/$target/lib/libgcc_s.so* $sysroot/lib
-	cp -d $tools/$target/lib/libstdc++.so* $sysroot/usr/lib
-	;;
-*)
-	cp -d $tools/$target/lib/libgcc_s.so* $sysroot/lib
-	cp -d $tools/$target/lib/libstdc++.so* $sysroot/usr/lib
-	;;
-esac
+  PATH=$tools/bin:$PATH make -j $parallelism install && touch .installed
+  check_return "gcc final install"
+  case $arch in
+  ppc64)
+	  cp -d $tools/$target/lib64/libgcc_s.so* $sysroot/lib64
+	  cp -d $tools/$target/lib64/libstdc++.so* $sysroot/usr/lib64
+	  cp -d $tools/$target/lib/libgcc_s.so* $sysroot/lib
+	  cp -d $tools/$target/lib/libstdc++.so* $sysroot/usr/lib
+	  ;;
+  x86_64)
+	  cp -d $tools/$target/lib/libgcc_s.so* $sysroot/lib
+	  cp -d $tools/$target/lib/libstdc++.so* $sysroot/usr/lib
+	  cp -d $tools/$target/lib64/libgcc_s.so* $sysroot/lib64
+	  cp -d $tools/$target/lib64/libstdc++.so* $sysroot/usr/lib64
+	  ;;
+  mips64)
+	  cp -d $tools/$target/lib64/libgcc_s.so* $sysroot/lib64
+	  cp -d $tools/$target/lib64/libgcc_s.so* $sysroot/lib64
+	  cp -d $tools/$target/lib32/libstdc++.so* $sysroot/usr/lib32
+	  cp -d $tools/$target/lib32/libstdc++.so* $sysroot/usr/lib32
+	  cp -d $tools/$target/lib/libgcc_s.so* $sysroot/lib
+	  cp -d $tools/$target/lib/libstdc++.so* $sysroot/usr/lib
+	  ;;
+  *)
+	  cp -d $tools/$target/lib/libgcc_s.so* $sysroot/lib
+	  cp -d $tools/$target/lib/libstdc++.so* $sysroot/usr/lib
+	  ;;
+  esac
 fi
 echo "!!! All Done !!!"
 
 # testing glibc in cross env
 
 # $ cd $obj/glibc
-# $ make cross-test-wrapper='/home/kraj/work/glibc/libc/scripts/cross-test-ssh.sh root@192.168.1.91' -k tests
+# $ make cross-test-wrapper='/home/kraj/work/glibc/scripts/cross-test-ssh.sh root@192.168.1.91' -k tests
