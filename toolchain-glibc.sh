@@ -155,7 +155,7 @@ prep_gcc () {
     mkdir gcc
     touch gcc/t-oe
     cp $src/$gccv/gcc/defaults.h gcc/defaults.h
-    sed -i '$i'"#define SYSTEMLIBS_DIR \"/\\$default_libdir_name\""  gcc/defaults.h
+    sed -i '$i'"#define SYSTEMLIBS_DIR \"/\\$default_libdir_name/\""  gcc/defaults.h
   fi
 }
 
@@ -305,8 +305,6 @@ case $arch in
 	cd $obj/glibc-o32
 	if [ ! -e .configured ]; then
 	BUILD_CC=gcc \
-	AUTOCONF=autoconf-2.13 \
-	CFLAGS='-g -O2 -fgnu89-inline' \
 	CC="$tools/bin/$target-gcc -mabi=32" \
 	CXX="$tools/bin/$target-g++ -mabi=32" \
 	CPP="$tools/bin/$target-cpp -mabi=32" \
@@ -342,8 +340,6 @@ case $arch in
 	cd $obj/glibc-32
 	if [ ! -e .configured ]; then
 	BUILD_CC=gcc \
-	AUTOCONF=autoconf-2.13 \
-	CFLAGS='-g -O2 -fgnu89-inline' \
 	CC="$tools/bin/$target-gcc -m32" \
 	CXX="$tools/bin/$target-g++ -m32" \
 	CPP="$tools/bin/$target-cpp -m32" \
@@ -379,8 +375,6 @@ case $arch in
 	cd $obj/glibc-32
 	if [ ! -e .configured ]; then
 	BUILD_CC=gcc \
-	AUTOCONF=autoconf-2.13 \
-	CFLAGS='-g -O2 -fgnu89-inline' \
 	CC="$tools/bin/$target-gcc -m32 -march=i686" \
 	CXX="$tools/bin/$target-g++ -m32 -march=i686" \
 	CPP="$tools/bin/$target-cpp -m32 -march=i686" \
@@ -468,7 +462,8 @@ $src/$gccv/configure \
     --enable-__cxa_atexit \
     --enable-shared --enable-threads \
     --disable-libssp --disable-libgomp --disable-libmudflap \
-    --enable-languages=c,c++ $extra_gcc_configure_opts \
+    --enable-languages=c,c++ \
+    $extra_gcc_configure_opts \
     && touch .configured
 fi
 if [ ! -e .compiled ]; then
