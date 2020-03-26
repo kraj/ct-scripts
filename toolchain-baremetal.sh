@@ -77,6 +77,34 @@ BASE=$top/$TARGET
 OBJBASE=$BASE/objdir
 SRCBASE=$src
 PREFIX=$BASE/tools
+
+finish() {
+  if [ $gcc_patched ]; then
+    mv $src/$gccv/gcc/cppdefault.c.orig $src/$gccv/gcc/cppdefault.c
+  fi
+}
+
+trap finish EXIT
+
+prep_gcc () {
+  if [ $gcc_patched ]; then
+    mkdir gcc
+    touch gcc/t-oe
+    cp $src/$gccv/gcc/defaults.h gcc/defaults.h
+    sed -i '$i'"#define SYSTEMLIBS_DIR \"/\\$default_libdir_name/\""  gcc/defaults.h
+  fi
+}
+
+prep_src () {
+  if [ $gcc_patched ]; then
+    cp $src/$gccv/gcc/cppdefault.c $src/$gccv/gcc/cppdefault.c.orig
+    sed -i -e 's/\<STANDARD_STARTFILE_PREFIX_2\>//g' $src/$gccv/gcc/cppdefault.c
+  fi
+}
+
+eval grep '\<STANDARD_STARTFILE_PREFIX_2\>' $src/$gccv/gcc/cppdefault.c >& /dev/null
+gcc_patched=$?
+
 # uncomment if want to generate debuggable toolchain components.
 #MAKE_FLAGS="CFLAGS='-O0 -g3'"
 rm -rf $BASE
@@ -84,6 +112,8 @@ mkdir -p ${OBJBASE}/binutils-build
 mkdir -p ${OBJBASE}/gcc-build
 mkdir -p ${OBJBASE}/gdb-build
 mkdir -p ${OBJBASE}/newlib-build
+
+prep_src
 
 echo "+-----------------------------------------------+"
 echo "|               Doing Binutils                  |"
@@ -116,6 +146,9 @@ echo "+-----------------------------------------------+"
 ln -s ${SRCBASE}/$NEWLIB_VER/newlib ${SRCBASE}/$GCC_VER
 ln -s ${SRCBASE}/$NEWLIB_VER/libgloss ${SRCBASE}/$GCC_VER
 cd ${OBJBASE}/gcc-build
+
+prep_gcc
+
 if [ ! -e .configured ]; then
 	eval $MAKE_FLAGS \
 	${SRCBASE}/$GCC_VER/configure \

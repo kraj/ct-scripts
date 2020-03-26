@@ -133,12 +133,41 @@ check_return () {
   fi
 }
 
+finish() {
+  if [ $gcc_patched ]; then
+    mv $src/$gccv/gcc/cppdefault.c.orig $src/$gccv/gcc/cppdefault.c
+  fi
+}
+
+trap finish EXIT
+
+prep_gcc () {
+  if [ $gcc_patched ]; then
+    mkdir gcc
+    touch gcc/t-oe
+    cp $src/$gccv/gcc/defaults.h gcc/defaults.h
+    sed -i '$i'"#define SYSTEMLIBS_DIR \"/\\$default_libdir_name/\""  gcc/defaults.h
+  fi
+}
+
+prep_src () {
+  if [ $gcc_patched ]; then
+    cp $src/$gccv/gcc/cppdefault.c $src/$gccv/gcc/cppdefault.c.orig
+    sed -i -e 's/\<STANDARD_STARTFILE_PREFIX_2\>//g' $src/$gccv/gcc/cppdefault.c
+  fi
+}
+
+eval grep '\<STANDARD_STARTFILE_PREFIX_2\>' $src/$gccv/gcc/cppdefault.c >& /dev/null
+gcc_patched=$?
+
 #if [ $download_src = "yes" ]; then
 #download
 #else
 #gccv=`ls $src/gcc-*.tar.bz2|xargs basename`
 #gccv=${gccv:4:12}
 #fi
+
+prep_src
 
 echo "Doing Binutils ..."
 mkdir -p $obj/binutils
@@ -165,16 +194,26 @@ fi
 echo "Doing GCC stage 1 ..."
 mkdir -p $obj/gcc1
 cd $obj/gcc1
+prep_gcc
 if [ ! -e .configured ]; then
 $src/$gccv/configure \
-     --target=$target \
-     --prefix=$tools \
-     --without-header \
-     --with-newlib \
-     --disable-shared --disable-threads --disable-libssp \
-     --disable-libgomp --disable-libmudflap --disable-libquadmath \
-     --enable-languages=c $extra_gcc_configure_opts \
-     && touch .configured
+$src/$gccv/configure \
+    --target=$target \
+    --prefix=$tools \
+    --disable-libssp --disable-libcilkrts \
+    --enable-languages=c --disable-shared \
+    --disable-threads \
+    --disable-libatomic \
+    --disable-decimal-float \
+    --disable-libffi \
+    --disable-libgomp \
+    --disable-libitm \
+    --disable-libmpx \
+    --disable-libquadmath \
+    --disable-libsanitizer \
+    --without-headers --with-newlib \
+    $extra_gcc_configure_opts \
+    && touch .configured
 fi
 if [ ! -e .compiled ]; then
 PATH=$tools/bin:$PATH make -j $parallelism all-gcc all-target-libgcc && touch .compiled
@@ -206,15 +245,20 @@ echo "Doing default musl ..."
 mkdir -p $obj/musl
 cd $obj/musl
 if [ ! -e .configured ]; then
-BUILD_CC=gcc \
-CC=$tools/bin/$target-gcc \
-CXX=$tools/bin/$target-g++ \
-AR=$tools/bin/$target-ar \
-RANLIB=$tools/bin/$target-ranlib \
-LD=$tools/bin/$target-ld \
-AS=$tools/bin/$target-as \
-NM=$tools/bin/$target-nm \
-$src/$libcv/configure \
+  BUILD_CC=gcc \
+  CC=$tools/bin/$target-gcc \
+  CXX=$tools/bin/$target-g++ \
+  AR=$tools/bin/$target-ar \
+  RANLIB=$tools/bin/$target-ranlib \
+  LD=$tools/bin/$target-ld \
+  AS=$tools/bin/$target-as \
+  NM=$tools/bin/$target-nm \
+  OBJCOPY=$tools/bin/$target-objcopy \
+  OBJDUMP=$tools/bin/$target-objdump \
+  RANLIB=$tools/bin/$target-ranlib \
+  READELF=$tools/bin/$target-readelf \
+  STRIP=$tools/bin/$target-strip \
+  $src/$libcv/configure \
     --prefix=/usr \
     --exec-prefix=/usr \
     --syslibdir=/lib \
@@ -223,27 +267,26 @@ $src/$libcv/configure \
     && touch .configured
 fi
 if [ ! -e .compiled ]; then
-PATH=$tools/bin:$PATH make -j$parallelism && touch .compiled
-check_return "musl compile"
+  PATH=$tools/bin:$PATH make -j$parallelism && touch .compiled
+  check_return "musl compile"
 fi
 if [ ! -e .installed ]; then
-PATH=$tools/bin:$PATH make -j$parallelism install \
+  PATH=$tools/bin:$PATH make -j$parallelism install \
 			   DESTDIR=$sysroot && touch .installed
-for i in libc.so.6 libcrypt.so.1 libdl.so.2 libm.so.6 libpthread.so.0 libresolv.so.2 librt.so.1 libutil.so.1; do
-  ln -sf libc.so ${sysroot}/lib/$i
-done
-check_return "musl install"
+  check_return "musl install"
 fi
 
 echo "Doing GCC final ..."
 mkdir -p $obj/gcc2
 cd $obj/gcc2
+prep_gcc
 if [ ! -e .configured ]; then
-$src/$gccv/configure \
+  $src/$gccv/configure \
     --target=$target \
     --prefix=$tools \
     --with-sysroot=$sysroot \
     --enable-__cxa_atexit \
+    --enable-shared --enable-threads \
     --disable-libssp --disable-libgomp \
     --disable-libmudflap --disable-libsanitizer \
     --disable-gnu-indirect-function \
@@ -252,42 +295,37 @@ $src/$gccv/configure \
     && touch .configured
 fi
 if [ ! -e .compiled ]; then
-PATH=$tools/bin:$PATH make -j $parallelism && touch .compiled
-check_return "gcc3 compile"
+  PATH=$tools/bin:$PATH make -j $parallelism && touch .compiled
+  check_return "gcc final compile"
 fi
 if [ ! -e .installed ]; then
-PATH=$tools/bin:$PATH make -j $parallelism install && touch .installed
-check_return "gcc3 install"
-case $arch in
-ppc64)
-	cp -d $tools/$target/lib64/libgcc_s.so* $sysroot/lib64
-	cp -d $tools/$target/lib64/libstdc++.so* $sysroot/usr/lib64
-	cp -d $tools/$target/lib/libgcc_s.so* $sysroot/lib
-	cp -d $tools/$target/lib/libstdc++.so* $sysroot/usr/lib
-	;;
-x86_64)
-	cp -d $tools/$target/lib/libgcc_s.so* $sysroot/lib
-	cp -d $tools/$target/lib/libstdc++.so* $sysroot/usr/lib
-	cp -d $tools/$target/lib64/libgcc_s.so* $sysroot/lib64
-	cp -d $tools/$target/lib64/libstdc++.so* $sysroot/usr/lib64
-	;;
-mips64)
-	cp -d $tools/$target/lib64/libgcc_s.so* $sysroot/lib64
-	cp -d $tools/$target/lib64/libgcc_s.so* $sysroot/lib64
-	cp -d $tools/$target/lib32/libstdc++.so* $sysroot/usr/lib32
-	cp -d $tools/$target/lib32/libstdc++.so* $sysroot/usr/lib32
-	cp -d $tools/$target/lib/libgcc_s.so* $sysroot/lib
-	cp -d $tools/$target/lib/libstdc++.so* $sysroot/usr/lib
-	;;
-*)
-	cp -d $tools/$target/lib/libgcc_s.so* $sysroot/lib
-	cp -d $tools/$target/lib/libstdc++.so* $sysroot/usr/lib
-	;;
-esac
+  PATH=$tools/bin:$PATH make -j $parallelism install && touch .installed
+  check_return "gcc final install"
+  case $arch in
+  ppc64)
+	  cp -d $tools/$target/lib64/libgcc_s.so* $sysroot/lib64
+	  cp -d $tools/$target/lib64/libstdc++.so* $sysroot/usr/lib64
+	  cp -d $tools/$target/lib/libgcc_s.so* $sysroot/lib
+	  cp -d $tools/$target/lib/libstdc++.so* $sysroot/usr/lib
+	  ;;
+  x86_64)
+	  cp -d $tools/$target/lib/libgcc_s.so* $sysroot/lib
+	  cp -d $tools/$target/lib/libstdc++.so* $sysroot/usr/lib
+	  cp -d $tools/$target/lib64/libgcc_s.so* $sysroot/lib64
+	  cp -d $tools/$target/lib64/libstdc++.so* $sysroot/usr/lib64
+	  ;;
+  mips64)
+	  cp -d $tools/$target/lib64/libgcc_s.so* $sysroot/lib64
+	  cp -d $tools/$target/lib64/libgcc_s.so* $sysroot/lib64
+	  cp -d $tools/$target/lib32/libstdc++.so* $sysroot/usr/lib32
+	  cp -d $tools/$target/lib32/libstdc++.so* $sysroot/usr/lib32
+	  cp -d $tools/$target/lib/libgcc_s.so* $sysroot/lib
+	  cp -d $tools/$target/lib/libstdc++.so* $sysroot/usr/lib
+	  ;;
+  *)
+	  cp -d $tools/$target/lib/libgcc_s.so* $sysroot/lib
+	  cp -d $tools/$target/lib/libstdc++.so* $sysroot/usr/lib
+	  ;;
+  esac
 fi
 echo "!!! All Done !!!"
-
-# testing musl in cross env
-
-# $ cd $obj/musl
-# $ make cross-test-wrapper='/home/kraj/work/musl/libc/scripts/cross-test-ssh.sh root@192.168.1.91' -k tests
