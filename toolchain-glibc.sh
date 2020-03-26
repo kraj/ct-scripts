@@ -192,16 +192,22 @@ if [ ! -e .configured ]; then
      	--target=$target \
      	--prefix=$tools \
      	--with-sysroot=$sysroot \
+      --enable-deterministic-archives \
+      --disable-gdb \
+      --disable-gdbserver \
+      --disable-libdecnumber \
+      --disable-readline \
+      --disable-sim \
 	    $extra_binutils_configure_opts \
 	    && touch .configured
 #     --enable-targets=all
 fi
 if [ ! -e .compiled ]; then
-  make -j $parallelism all-binutils all-ld all-gas all-gold && touch .compiled
+  make -j $parallelism && touch .compiled
   check_return "binutils compile"
 fi
 if [ ! -e .installed ]; then
-  make -j $parallelism install-ld install-gas install-binutils install-gold && touch .installed
+  make -j $parallelism install && touch .installed
   check_return "binutils install"
 fi
 

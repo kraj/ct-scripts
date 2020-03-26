@@ -183,16 +183,21 @@ $src/$binutilsv/configure \
      	--prefix=$tools \
      	--with-sysroot=$sysroot \
       --enable-deterministic-archives \
+      --disable-gdb \
+      --disable-gdbserver \
+      --disable-libdecnumber \
+      --disable-readline \
+      --disable-sim \
 	$extra_binutils_configure_opts \
 	&& touch .configured
 #     --enable-targets=all
 fi
 if [ ! -e .compiled ]; then
-make -j $parallelism all-binutils all-ld all-gas all-gold && touch .compiled
+make -j $parallelism && touch .compiled
 check_return "binutils compile"
 fi
 if [ ! -e .installed ]; then
-make -j $parallelism install-ld install-gas install-binutils install-gold && touch .installed
+make -j $parallelism install && touch .installed
 check_return "binutils install"
 fi
 
@@ -201,7 +206,7 @@ mkdir -p $obj/gcc1
 cd $obj/gcc1
 prep_gcc
 if [ ! -e .configured ]; then
-$src/$gccv/configure \
+  $src/$gccv/configure \
     --target=$target \
     --prefix=$tools \
     --disable-libssp --disable-libcilkrts \
@@ -220,12 +225,12 @@ $src/$gccv/configure \
     && touch .configured
 fi
 if [ ! -e .compiled ]; then
-PATH=$tools/bin:$PATH make -j $parallelism all-gcc all-target-libgcc && touch .compiled
-check_return "gcc1 compile"
+  PATH=$tools/bin:$PATH make -j $parallelism all-gcc all-target-libgcc && touch .compiled
+  check_return "gcc1 compile"
 fi
 if [ ! -e .installed ]; then
-PATH=$tools/bin:$PATH make -j  $parallelism install-gcc install-target-libgcc && touch .installed
-check_return "gcc1 install"
+  PATH=$tools/bin:$PATH make -j  $parallelism install-gcc install-target-libgcc && touch .installed
+  check_return "gcc1 install"
 fi
 
 echo "Doing linux kernel headers ..."
@@ -234,14 +239,14 @@ mkdir -p $obj/linux
 cd $src/$linuxv
 
 if [ ! -e $obj/linux/.installed ]; then
-PATH=$tools/bin:$PATH \
-make -j $parallelism headers_install \
+  PATH=$tools/bin:$PATH \
+  make -j $parallelism headers_install \
       ARCH=$linux_arch \
       CROSS_COMPILE=$target- \
       INSTALL_HDR_PATH=$sysroot/usr \
       O=$obj/linux \
       && touch $obj/linux/.installed
-check_return "linux kernel headers install"
+  check_return "linux kernel headers install"
 fi
 
 echo "Doing default musl ..."
