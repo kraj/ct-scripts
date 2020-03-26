@@ -44,6 +44,11 @@ case $arch in
         target=arm-linux-musleabi
         linux_arch=arm
         ;;
+    armhf)
+        target=arm-linux-musleabihf
+        linux_arch=arm
+        extra_gcc_configure_opts="--with-float=hard --with-fpu=vfp"
+        ;;
     mipsel|mips|mips64)
 	if [ "$arch" = "mips64" ]; then
 	    default_libdir_name=lib32
