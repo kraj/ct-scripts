@@ -40,6 +40,10 @@ extra_glibc_configure_opts=
 arch=$1
 default_libdir_name=lib
 case $arch in
+    arm64|aarch64)
+        target=aarch64-linux-gnu
+        linux_arch=arm64
+        ;;
     arm)
         target=arm-linux-gnueabi
         linux_arch=arm
@@ -81,14 +85,15 @@ case $arch in
 	      fi
         ;;
     x86)
-        target=i586-linux-gnu
+        target=i686-linux-gnu
         linux_arch=x86
-        extra_gcc_configure_opts="$extra_gcc_configure_opts --with-arch=i586"
+        extra_gcc_configure_opts="$extra_gcc_configure_opts --with-arch=i686"
         ;;
-    x86_64)
+    amd64|x86_64)
         target=x86_64-linux-gnu
         linux_arch=x86
         default_libdir_name=lib64
+        extra_gcc_configure_opts="$extra_gcc_configure_opts --disable-bootstrap"
         ;;
     *)
         echo "Specify one {arm mpc ppc ppc64 mips mipsel mips64 sh3 sh4 sh64} architecture to build."
@@ -486,10 +491,10 @@ if [ ! -e .installed ]; then
 	  cp -d $tools/$target/lib/libstdc++.so* $sysroot/usr/lib
 	  ;;
   x86_64)
-	  cp -d $tools/$target/lib/libgcc_s.so* $sysroot/lib
-	  cp -d $tools/$target/lib/libstdc++.so* $sysroot/usr/lib
-	  cp -d $tools/$target/lib64/libgcc_s.so* $sysroot/lib64
-	  cp -d $tools/$target/lib64/libstdc++.so* $sysroot/usr/lib64
+	  cp -d $tools/lib/libgcc_s.so* $sysroot/lib
+	  cp -d $tools/lib/libstdc++.so* $sysroot/usr/lib
+	  cp -d $tools/lib64/libgcc_s.so* $sysroot/lib64
+	  cp -d $tools/lib64/libstdc++.so* $sysroot/usr/lib64
 	  ;;
   mips64)
 	  cp -d $tools/$target/lib64/libgcc_s.so* $sysroot/lib64
