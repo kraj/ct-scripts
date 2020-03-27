@@ -43,6 +43,7 @@ case $arch in
     arm64|aarch64)
         target=aarch64-linux-gnu
         linux_arch=arm64
+        default_libdir_name=lib64
         ;;
     arm)
         target=arm-linux-gnueabi

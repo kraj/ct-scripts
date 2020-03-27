@@ -41,8 +41,9 @@ arch=$1
 default_libdir_name=lib
 case $arch in
     arm64|aarch64)
-        target=aarch64-linux-gnu
+        target=aarch64-linux-musl
         linux_arch=arm64
+        default_libdir_name=lib64
         ;;
     arm)
         target=arm-linux-musleabi
@@ -54,35 +55,35 @@ case $arch in
         extra_gcc_configure_opts="--with-float=hard --with-fpu=vfp"
         ;;
     mipsel|mips|mips64)
-	if [ "$arch" = "mips64" ]; then
-	    default_libdir_name=lib32
-	fi
+        if [ "$arch" = "mips64" ]; then
+          default_libdir_name=lib32
+	      fi
         target=$arch-linux-musl
         linux_arch=mips
-	extra_binutils_configure_opts="$extra_binutils_configure_opts --disable-werror"
+        extra_binutils_configure_opts="$extra_binutils_configure_opts --disable-werror"
         ;;
     mpc)
         target=powerpc-linux-muslspe
         linux_arch=powerpc
-	extra_binutils_configure_opts="$extra_binutils_configure_opts --disable-werror"
+        extra_binutils_configure_opts="$extra_binutils_configure_opts --disable-werror"
         ;;
     ppc)
         target=powerpc-linux-musl
         linux_arch=powerpc
-	extra_binutils_configure_opts="$extra_binutils_configure_opts --disable-werror"
+        extra_binutils_configure_opts="$extra_binutils_configure_opts --disable-werror"
         ;;
     ppc64|powerpc64)
         target=powerpc64-linux-musl
         linux_arch=powerpc
-	default_libdir_name=lib64
-	extra_binutils_configure_opts="$extra_binutils_configure_opts --enable-targets=powerpc-linux --disable-werror"
+        default_libdir_name=lib64
+        extra_binutils_configure_opts="$extra_binutils_configure_opts --enable-targets=powerpc-linux --disable-werror"
         ;;
     sh3|sh4|sh64)
         target=$arch-linux-musl
         linux_arch=sh
-	if [ "$arch" = "sh3" ]; then
-	    extra_musl_configure_opts="--without-fp"
-	fi
+      	if [ "$arch" = "sh3" ]; then
+	        extra_musl_configure_opts="--without-fp"
+      	fi
         ;;
     x86)
         target=i686-linux-musl
