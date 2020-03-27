@@ -168,6 +168,13 @@ prep_src () {
     cp $src/$libcv/elf/readlib.c $src/$libcv/elf/readlib.c.orig
     sed -i -e /OECORE_KNOWN_INTERPRETER_NAMES/d $src/$libcv/elf/readlib.c
   fi
+  cd $src/$binutilsv
+  for d in . bfd binutils gas gold gprof ld libctf opcodes; do
+    cd $d
+    rm -rf autom4te.cache
+    autoconf
+    cd -
+  done
 }
 
 eval grep '\<STANDARD_STARTFILE_PREFIX_2\>' $src/$gccv/gcc/cppdefault.c >& /dev/null
@@ -275,8 +282,6 @@ case $arch in
 	cd $obj/glibc-n64
 	if [ ! -e .configured ]; then
 	BUILD_CC=gcc \
-	AUTOCONF=autoconf-2.13 \
-	CFLAGS='-g -O2 -fgnu89-inline' \
 	CC="$tools/bin/$target-gcc -mabi=64" \
 	CXX="$tools/bin/$target-g++ -mabi=64" \
 	CPP="$tools/bin/$target-cpp -mabi=64" \
@@ -441,8 +446,6 @@ $src/$libcv/configure \
     && touch .configured
 fi
 if [ ! -e .compiled ]; then
-  cp $src/$libcv/elf/readlib.c $src/$libcv/elf/readlib.c.orig
-  sed -i -e /OECORE_KNOWN_INTERPRETER_NAMES/d $src/$libcv/elf/readlib.c
   PATH=$tools/bin:$PATH make PARALLELMFLAGS=-j$parallelism && touch .compiled
   check_return "glibc compile"
 fi
@@ -450,10 +453,6 @@ if [ ! -e .installed ]; then
   PATH=$tools/bin:$PATH make PARALLELMFLAGS=-j$parallelism install \
 			   install_root=$sysroot && touch .installed
   check_return "glibc install"
-fi
-
-if [ -e $src/$libcv/elf/readlib.c.orig ]; then
-  mv $src/$libcv/elf/readlib.c.orig $src/$libcv/elf/readlib.c
 fi
 
 echo "Doing final GCC ..."

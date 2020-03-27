@@ -102,6 +102,13 @@ prep_src () {
     cp $src/$gccv/gcc/cppdefault.c $src/$gccv/gcc/cppdefault.c.orig
     sed -i -e 's/\<STANDARD_STARTFILE_PREFIX_2\>//g' $src/$gccv/gcc/cppdefault.c
   fi
+  cd $src/$binutilsv
+  for d in . bfd binutils gas gold gprof ld libctf opcodes; do
+    cd $d
+    rm -rf autom4te.cache
+    autoconf
+    cd -
+  done
 }
 
 eval grep '\<STANDARD_STARTFILE_PREFIX_2\>' $src/$gccv/gcc/cppdefault.c >& /dev/null
