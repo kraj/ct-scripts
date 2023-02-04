@@ -25,6 +25,11 @@ newlibv=newlib
 gdbv=binutils-gdb
 
 case ${arch} in
+    aarch64)
+#	target=arm-elf
+	target=aarch64-eabi
+	extra_gcc_configure_opts="--disable-multilib"
+  ;;
     arm)
 #	target=arm-elf
 	target=arm-eabi
@@ -82,7 +87,7 @@ sysroot=$top/sysroot
 
 finish() {
   if [ $gcc_patched ]; then
-    mv $src/$gccv/gcc/cppdefault.c.orig $src/$gccv/gcc/cppdefault.c
+    mv $src/$gccv/gcc/cppdefault.cc.orig $src/$gccv/gcc/cppdefault.cc
   fi
 }
 
@@ -99,8 +104,8 @@ prep_gcc () {
 
 prep_src () {
   if [ $gcc_patched ]; then
-    cp $src/$gccv/gcc/cppdefault.c $src/$gccv/gcc/cppdefault.c.orig
-    sed -i -e 's/\<STANDARD_STARTFILE_PREFIX_2\>//g' $src/$gccv/gcc/cppdefault.c
+    cp $src/$gccv/gcc/cppdefault.cc $src/$gccv/gcc/cppdefault.cc.orig
+    sed -i -e 's/\<STANDARD_STARTFILE_PREFIX_2\>//g' $src/$gccv/gcc/cppdefault.cc
   fi
   cd $src/$binutilsv
   for d in . bfd binutils gas gold gprof ld libctf opcodes; do
@@ -111,7 +116,7 @@ prep_src () {
   done
 }
 
-eval grep '\<STANDARD_STARTFILE_PREFIX_2\>' $src/$gccv/gcc/cppdefault.c >& /dev/null
+eval grep '\<STANDARD_STARTFILE_PREFIX_2\>' $src/$gccv/gcc/cppdefault.cc >& /dev/null
 gcc_patched=$?
 
 # uncomment if want to generate debuggable toolchain components.

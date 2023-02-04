@@ -146,7 +146,7 @@ check_return () {
 
 finish() {
   if [ $gcc_patched ]; then
-    mv $src/$gccv/gcc/cppdefault.c.orig $src/$gccv/gcc/cppdefault.c
+    mv $src/$gccv/gcc/cppdefault.cc.orig $src/$gccv/gcc/cppdefault.cc
   fi
 }
 
@@ -154,7 +154,7 @@ trap finish EXIT
 
 prep_gcc () {
   if [ $gcc_patched ]; then
-    mkdir gcc
+    mkdir -p gcc
     touch gcc/t-oe
     cp $src/$gccv/gcc/defaults.h gcc/defaults.h
     sed -i '$i'"#define SYSTEMLIBS_DIR \"/\\$default_libdir_name/\""  gcc/defaults.h
@@ -163,19 +163,19 @@ prep_gcc () {
 
 prep_src () {
   if [ $gcc_patched ]; then
-    cp $src/$gccv/gcc/cppdefault.c $src/$gccv/gcc/cppdefault.c.orig
-    sed -i -e 's/\<STANDARD_STARTFILE_PREFIX_2\>//g' $src/$gccv/gcc/cppdefault.c
+    cp $src/$gccv/gcc/cppdefault.cc $src/$gccv/gcc/cppdefault.cc.orig
+    sed -i -e 's/\<STANDARD_STARTFILE_PREFIX_2\>//g' $src/$gccv/gcc/cppdefault.cc
   fi
-  cd $src/$binutilsv
-  for d in . bfd binutils gas gold gprof ld libctf opcodes; do
-    cd $d
-    rm -rf autom4te.cache
-    autoconf
-    cd -
-  done
+#  cd $src/$binutilsv
+#  for d in . bfd binutils gas gold gprof ld libctf opcodes; do
+#    cd $d
+#    rm -rf autom4te.cache
+#    autoconf
+#    cd -
+#  done
 }
 
-eval grep '\<STANDARD_STARTFILE_PREFIX_2\>' $src/$gccv/gcc/cppdefault.c >& /dev/null
+eval grep '\<STANDARD_STARTFILE_PREFIX_2\>' $src/$gccv/gcc/cppdefault.cc >& /dev/null
 gcc_patched=$?
 
 #if [ $download_src = "yes" ]; then
