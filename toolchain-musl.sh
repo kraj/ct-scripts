@@ -324,6 +324,10 @@ if [ ! -e .installed ]; then
   PATH=$tools/bin:$PATH make -j $parallelism install && touch .installed
   check_return "gcc final install"
   case $arch in
+  aarch64)
+	  cp -d $tools/$target/lib64/libgcc_s.so* $sysroot/lib
+	  cp -d $tools/$target/lib64/libstdc++.so* $sysroot/usr/lib
+    ;;
   ppc64)
 	  cp -d $tools/$target/lib64/libgcc_s.so* $sysroot/lib64
 	  cp -d $tools/$target/lib64/libstdc++.so* $sysroot/usr/lib64
