@@ -146,7 +146,7 @@ check_return () {
 
 finish() {
   if [ $gcc_patched ]; then
-    mv $src/$gccv/gcc/cppdefault.cc.orig $src/$gccv/gcc/cppdefault.cc
+    mv $src/$gccv/gcc/cppdefault.$ext.orig $src/$gccv/gcc/cppdefault.$ext
   fi
 }
 
@@ -163,8 +163,8 @@ prep_gcc () {
 
 prep_src () {
   if [ $gcc_patched ]; then
-    cp $src/$gccv/gcc/cppdefault.cc $src/$gccv/gcc/cppdefault.cc.orig
-    sed -i -e 's/\<STANDARD_STARTFILE_PREFIX_2\>//g' $src/$gccv/gcc/cppdefault.cc
+    cp $src/$gccv/gcc/cppdefault.$ext $src/$gccv/gcc/cppdefault.$ext.orig
+    sed -i -e 's/\<STANDARD_STARTFILE_PREFIX_2\>//g' $src/$gccv/gcc/cppdefault.$ext
   fi
 #  cd $src/$binutilsv
 #  for d in . bfd binutils gas gold gprof ld libctf opcodes; do
@@ -175,7 +175,12 @@ prep_src () {
 #  done
 }
 
-eval grep '\<STANDARD_STARTFILE_PREFIX_2\>' $src/$gccv/gcc/cppdefault.cc >& /dev/null
+if [ -e $src/$gccv/gcc/cppdefault.c ]; then
+  ext=c
+elif [ -e $src/$gccv/gcc/cppdefault.cc ]; then
+  ext=cc
+fi
+eval grep '\<STANDARD_STARTFILE_PREFIX_2\>' $src/$gccv/gcc/cppdefault.$ext >& /dev/null
 gcc_patched=$?
 
 #if [ $download_src = "yes" ]; then
